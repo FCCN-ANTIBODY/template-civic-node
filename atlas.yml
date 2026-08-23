@@ -1,0 +1,26 @@
+# Public identity of THIS node acting as its own Atlas — the entry it registers into
+# a PEER Atlas's _data/atlases.yml. Public face; no secrets.
+#
+# DELETE THIS FILE if this node does not run an Atlas. The declaration is what makes
+# the role true: a directory reads these at a fetchable path rather than guessing,
+# and a role you do not fill should not be announced.
+
+# Stable slug for this node's Atlas. Also the <id> segment of the atlas/<scope>/<id>
+# branch a peer-registration PR is opened on.
+id: ""
+
+# Human-readable label shown in a peer's directory of Atlases.
+name: ""
+
+# This node's own domain.
+url: ""
+
+# This node's repository (owner/name) — where a peer opens request/answer PRs.
+repo: ""
+
+# The jurisdiction / namespace this node speaks for. Also the <scope> segment of the
+# atlas/<scope>/<id> registration branch.
+scope: ""
+
+# Where this node publishes the aggregate reports it rolls up.
+reports: "reports/aggregate-*"

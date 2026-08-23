@@ -1,0 +1,12 @@
+[submodule ".journal-engine"]
+	path = .journal-engine
+	url = https://github.com/FCCN-ANTIBODY/journal.anecdote.channel
+[submodule ".atlas-engine"]
+	path = .atlas-engine
+	url = https://github.com/FCCN-ANTIBODY/atlas.anecdote.channel
+[submodule ".tell-engine"]
+	path = .tell-engine
+	url = https://github.com/FCCN-ANTIBODY/tell.anecdote.channel
+[submodule ".antidote-engine"]
+	path = .antidote-engine
+	url = https://github.com/FCCN-ANTIBODY/antidote

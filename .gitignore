@@ -1,0 +1,32 @@
+vendor/bundle
+_site
+_data/git
+retain-*
+
+.DS_Store
+Gemfile.lock
+
+# Synced from the journal engine at build time (bin/sync.sh)
+_layouts/
+_plugins/
+css/
+js/
+fonts/
+img/
+_includes/*.html
+_includes/toc/
+# skel pages delivered from journal/skel/
+/404.md
+/robots.txt
+/sitemap.xml
+/sitemap_root.xml
+/sitemapset.xsl
+/urlset.xsl
+/index.md
+/readme.md
+/license.md
+# The journal role's self-declaration, synced in like the rest of skel/. Engine-owned: a site
+# that wants to say more (its canonical url, an id) SHADOWS it — commit its own copy and add
+# --exclude='journal.yml' to the rsync in the engine's bin/sync.sh. Left ignored, this node's
+# claim is carried by atlas.yml, which already declares the same url.
+/journal.yml

@@ -1,0 +1,3 @@
+# ignore news-clues
+news-clues.html -linguist-detectable
+AGENTS.md linguist-documentation

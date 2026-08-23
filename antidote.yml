@@ -1,0 +1,16 @@
+# Charter face of THIS node acting as its own Antidote — the archivist role. Public
+# face; no secrets.
+#
+# DELETE THIS FILE if this node does not run an Antidote.
+#
+# THE RATCHET RULE: the constitution is DECLARED here, fixed at charter time,
+# versioned by content hash — never computed from holdings. Changing it is
+# re-chartering.
+#
+# As shipped this node is UNCHARTERED: the door admits nothing and honest defaults
+# fire nothing. Chartering is a deliberate act, not a step in setup.
+
+id: ""
+category: ""            # the label-vocabulary category this server collects for (empty = general)
+constitution: ""        # UNCHARTERED — set to the content hash of the constitution this node wears
+stamp_default: ""       # empty = bare arrivals are refused (no constitution, no catalog)

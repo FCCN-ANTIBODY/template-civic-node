@@ -1,0 +1,13 @@
+{
+  "comment": "Thin relay to the journal engine (mounted at .journal-engine/). The build logic lives in .journal-engine/bin; add site-specific scripts here as needed.",
+  "engines": {
+    "node": "20.x"
+  },
+  "scripts": {
+    "stats": ".journal-engine/bin/stats.sh",
+    "sync": ".journal-engine/bin/sync.sh",
+    "build": ".journal-engine/bin/build.sh",
+    "serve": ".journal-engine/bin/serve.sh",
+    "prebuild": ".journal-engine/bin/stats.sh"
+  }
+}

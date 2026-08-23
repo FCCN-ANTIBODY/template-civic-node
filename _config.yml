@@ -1,0 +1,32 @@
+# THIS NODE'S OWN CONFIG. Everything here is a value to fill in — the structure is
+# the engines' and is layered under this file at build time.
+#
+# Almost all of standing a node up is filling these in and authorising things. If
+# you find yourself editing machinery instead, stop: that is a sign the thing you
+# want belongs in an engine, or in a shadowed file you commit deliberately.
+
+# The publication's name, as it brands itself. A directory reads this off your
+# served <title> — so write it the way you want to be called, not a description.
+title: "YOUR NODE"
+description: "What this node is for, in one line."
+
+# Your canonical address. Also goes in NAME, which is what a directory actually
+# reads; this one is for the site's own links and feeds.
+url: "https://REPLACE-ME"
+
+# Content mount. Disk path == URL path — the value is the content dir, the public
+# URL base, and the _data/git namespace, all one name.
+journal: journal
+
+exclude:
+  # CNAME is host plumbing. NAME is NOT excluded — it is this node's published
+  # claim about where it belongs, and a claim nobody can fetch is not a claim.
+  - CNAME
+  - .bundle
+  - Gemfile
+  - Gemfile.lock
+  - vendor
+  - .journal-engine/
+  - .atlas-engine/
+  - .tell-engine/
+  - .antidote-engine/

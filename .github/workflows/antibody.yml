@@ -1,0 +1,231 @@
+name: "Publish · site"
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+  workflow_dispatch:
+  schedule:
+    # Daily redeploy so automated advances become visible. Pushes made by the
+    # weekly citation/pin workflows use GITHUB_TOKEN + [skip ci], which never
+    # trigger a `push` build, so without this the site never rebuilds from main's
+    # latest pins. Runs after the Mon 06:00 citations / 07:00 module advances.
+    - cron: "17 8 * * *"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    outputs:
+      build_sha: ${{ steps.build.outputs.build_sha }}
+      build_mode: ${{ steps.build.outputs.build_mode }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          submodules: recursive
+      - name: Custody boundary — workflows read only declared secrets
+        # keys/custody.yml is the workspace's declared custody (rework slice 5, #61); the tell
+        # engine carries the checker and its code-vs-data seams point it at THIS tree. Same
+        # best-effort probe idiom as the widget below: the build must not fail while the
+        # .tell-engine pin predates the checker.
+        shell: bash
+        run: |
+          if [ -x .tell-engine/bin/check-custody ]; then
+            CUSTODY_YML=keys/custody.yml WORKFLOWS_DIR=.github BINS_DIR=bin .tell-engine/bin/check-custody
+          else
+            echo "::notice::.tell-engine pin predates bin/check-custody — custody check skipped this build"
+          fi
+      - name: Detect the Tell widget action in the pinned submodule
+        # The node must build even when the .tell-engine pin is behind the action's introduction.
+        # Probe for it so the render below is best-effort, not a hard cross-repo dependency.
+        id: tellwidget
+        shell: bash
+        run: |
+          if [ -f .tell-engine/.github/actions/widget/action.yml ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::.tell-engine pin predates the widget action — keeping committed _includes/widgets/tell.html"
+          fi
+      - name: Render this node's Tell widget
+        # Regenerate the data-filled Tell fragment from THIS node's identity (atlas.yml)
+        # straight into the served path widget/tell.html — a self-contained static file
+        # (no Jekyll front matter, no include), so it never couples to the engine's
+        # managed _includes. When the pinned tell ships the action this keeps every deploy
+        # fresh; otherwise the committed widget/tell.html default stands. Same
+        # submodule-path convention as the module-pin advances below.
+        if: steps.tellwidget.outputs.present == 'true'
+        continue-on-error: true   # a broken channel HEAD never breaks this node — fallback stands
+        uses: ./.tell-engine/.github/actions/widget
+        with:
+          out: widget/tell.html
+      - name: Detect the Atlas widget action in the pinned submodule
+        # Same best-effort probe as the Tell widget above: the node must build even when the
+        # .atlas-engine pin is behind the action's introduction, so this is not a hard cross-repo
+        # dependency.
+        id: atlaswidget
+        shell: bash
+        run: |
+          if [ -f .atlas-engine/.github/actions/widget/action.yml ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::.atlas-engine pin predates the widget action — keeping committed widget/atlas.html"
+          fi
+      - name: Render this node's Atlas widget
+        # Regenerate the data-filled Atlas fragment from THIS node's identity (atlas.yml)
+        # straight into the served path widget/atlas.html — a self-contained static file
+        # (no Jekyll front matter, no include), so it never couples to the engine's managed
+        # _includes. Like the Tell widget it bakes a hub locator QR — the Atlas tier of the
+        # same pattern, the single <atlas> label handed to the Atlas hub, which fills the
+        # scanner's state and redirects. When the pinned atlas ships the action this keeps
+        # every deploy fresh; otherwise the committed widget/atlas.html default stands.
+        if: steps.atlaswidget.outputs.present == 'true'
+        continue-on-error: true   # a broken channel HEAD never breaks this node — fallback stands
+        uses: ./.atlas-engine/.github/actions/widget
+        with:
+          out: widget/atlas.html
+      - name: Detect the Journal widget action in the pinned submodule
+        # Same best-effort probe as the Tell widget above: the node must build even when the
+        # .journal-engine pin is behind the action's introduction, so this is not a hard
+        # cross-repo dependency.
+        id: journalwidget
+        shell: bash
+        run: |
+          if [ -f .journal-engine/.github/actions/widget/action.yml ]; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::.journal-engine pin predates the widget action — keeping committed widget/journal.html"
+          fi
+      - name: Render this node's Journal widget
+        # Regenerate the data-filled Journal fragment from THIS node's identity (_config.yml)
+        # straight into the served path widget/journal.html — a self-contained static file
+        # (no Jekyll front matter, no include), so it never couples to the engine's managed
+        # _includes. Unlike the Tell widget's hub locator, journal's QR points straight at
+        # this node's own /journal/ — it is the node's own first-party record. When the
+        # pinned journal ships the action this keeps every deploy fresh; otherwise the
+        # committed widget/journal.html default stands.
+        if: steps.journalwidget.outputs.present == 'true'
+        continue-on-error: true   # a broken engine HEAD never breaks this node — fallback stands
+        uses: ./.journal-engine/.github/actions/widget
+        with:
+          out: widget/journal.html
+      - name: Build
+        id: build
+        uses: ./.journal-engine/.github/actions/build
+        with:
+          try_latest: ${{ github.ref == 'refs/heads/main' }}
+          engine: .journal-engine
+
+  write-back:
+    needs: build
+    # Hook the commit-back to a SUCCESSFUL main build: `needs: build` already means the build
+    # passed (a failed build skips this job), so reaching here IS the success finish. We keep the
+    # commit-back in THIS outer workflow rather than leaning on each module's composite to
+    # self-push — the workspace owns its own history and token, so one readable place rolls every
+    # pin it mounts. (No longer gated on build_mode: that gate is journal-specific and now lives
+    # on the journal step below, so the channels still roll when the engine pin holds.)
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Roll module pins forward and commit back
+        shell: bash
+        env:
+          JOURNAL_BUILT: ${{ needs.build.outputs.build_mode }}
+          JOURNAL_SHA: ${{ needs.build.outputs.build_sha }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # journal (the engine): advance ONLY to the SHA the build just gated as latest-good
+          # (build_mode == latest). Otherwise leave the known-good engine pin untouched — a
+          # broken engine HEAD must never displace it.
+          if [ "$JOURNAL_BUILT" = "latest" ] && [ -n "$JOURNAL_SHA" ]; then
+            git submodule update --init --depth=1 .journal-engine
+            git -C .journal-engine fetch origin main
+            git -C .journal-engine checkout "$JOURNAL_SHA"
+            git add .journal-engine
+          fi
+
+          # atlas + tell (the channels): roll to each channel's own main HEAD. The channels gate
+          # their own main (their test/deploy CI), and the widget renders in the build job are
+          # continue-on-error, so a bad channel HEAD can never break this node's deploy — it just
+          # falls back to the committed widget. This keeps every deploy's pins fresh without
+          # rebuilding the channel sites here; the weekly modules-upgrade.yml stays as the
+          # build-gated belt-and-suspenders.
+          for mod in .atlas-engine .tell-engine; do
+            git submodule update --init --depth=1 "$mod"
+            git -C "$mod" fetch origin main
+            git -C "$mod" checkout origin/main
+            git add "$mod"
+          done
+
+          # One commit-back for whatever actually moved. Race-safe push: the weekly updater may
+          # advance pins in parallel, so on rejection rebase onto main and retry.
+          if git diff --cached --quiet; then
+            echo "module pins already current — nothing to commit back"
+            exit 0
+          fi
+          git commit -m "ci: roll module pins forward (journal/atlas/tell) [skip ci]"
+          for attempt in 1 2 3 4 5; do
+            if git push origin main; then exit 0; fi
+            git fetch origin main
+            git rebase origin/main || { git rebase --abort; break; }
+          done
+          echo "push to main failed after retries" >&2
+          exit 1
+
+  deploy:
+    if: github.ref == 'refs/heads/main'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+  purge-cache:
+    # Purge Cloudflare AFTER the new artifact is live (needs: deploy), so the next
+    # request repopulates cache from the fresh origin rather than the old one.
+    # Precise on content-only pushes, purge-everything otherwise; a no-op until the
+    # CLOUDFLARE_* secrets are set. Never fails the deploy.
+    if: github.ref == 'refs/heads/main'
+    needs: deploy
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0          # need history to diff the change set
+          submodules: recursive   # need the content submodule to diff its pages
+      - name: Purge changed URLs (or everything)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          # Zone ID isn't a credential, so accept it as a repo Variable or a Secret.
+          CLOUDFLARE_ZONE_ID: ${{ vars.CLOUDFLARE_ZONE_ID || secrets.CLOUDFLARE_ZONE_ID }}
+          EVENT: ${{ github.event_name }}
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: bin/cf-purge.sh
